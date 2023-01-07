@@ -47,10 +47,7 @@ Function FindLostFrames(clip c, int "thresh", bool "show", string "ovr", clip "i
         
         use_b = false
         use_t = false
-        
-        #use_b = (((cb_diff < thresh) || (pb_diff < thresh) || (nb_diff < thresh) || (override == "b")) && (override != "-")) ? false : true
-        #use_t = (((((ct_diff < thresh) || (pt_diff < thresh) || (nt_diff < thresh)) && (use_b == false)) || (override == "t"))  && (override != "-")) ? false : true
-    
+            
         use_b = ((((cb_diff > thresh) && (pb_diff > thresh) && (nb_diff > thresh)) || (override == "b")) && (override != "-")) ? true : false
         use_t = ((((ct_diff > thresh) && (pt_diff > thresh) && (nt_diff > thresh)) || (override == "t")) && (use_b == false) && (override != "-")) ? true : false
         
@@ -64,11 +61,11 @@ Function FindLostFrames(clip c, int "thresh", bool "show", string "ovr", clip "i
         
         flf_output != "" ? WriteFileIf(last, flf_output, "(use_b == true) || (use_t == true)", "current_frame", "report") : last
 
-        flf_details ? \
-            Subtitle("Thresh: " + String(thresh) + "\n" + \
-                "Cb: " + String(cb_diff) + "\n" + "Pb: " + String(pb_diff) + "\n" + "Nb: " + String(nb_diff) + "\n" + \
-                "Ct: " + String(ct_diff) + "\n" + "Pt: " + String(pt_diff) + "\n" + "Nt: " + String(nt_diff), \
-                lsp=10, align=9) : last        
+        text = "Thresh: " + String(thresh) + "\n\n" + \
+                "Ct: " + String(ct_diff) + "\n" + "Pt: " + String(pt_diff) + "\n" + "Nt: " + String(nt_diff) + "\n\n" + \
+                "Cb: " + String(cb_diff) + "\n" + "Pb: " + String(pb_diff) + "\n" + "Nb: " + String(nb_diff)
+                
+        flf_details ? Subtitle(text, lsp=10, align=9) : last        
     """)
     output = (ovr != "") ? ConditionalReader(ovr, "override") : FrameEvaluate(""" override = "" """)
     return output
