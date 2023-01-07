@@ -41,18 +41,19 @@ frames that it finds
 
 ```
 thresh -
-    the threshold that determines whether the interpolated frame matches with existing frames, metrics below 
-    this value count as matches. Lower values result in more frames being "found" including more false
-    positives, it's easy to find false positives though so better to set this on the lower side and get too 
-    many false positives rather than lose good frames
+    the threshold that determines whether the interpolated frame matches with existing frames, lower values 
+    result in more frames being "found" including more false positives, higher values will result in fewer
+    frames being "found". It's easy to find false positives so it's usually better to set this on the lower 
+    side and get too many false positives, and manually clean those up, rather than miss good frames and not
+    know
     
     default: 30
     
 show - 
     shows metrics for field matching, for current/previous/next frames and for top/bottom fields, to help find
-    threshold values. if any of the 6 metrics are below the threshold then that's considered a match and the 
-    frame is ignored. metrics are displayed top-right so as not to interfere with metrics being displayed in 
-    TFM or Telecide
+    threshold values. if all 3 metrics for either top or bottom field are above the threshold then that field
+    is considered to hold a "missing" frame and will be inserted into the output. metrics are displayed
+    top-right so as not to interfere with metrics being displayed in TFM or Telecide
     
     default: false
     
