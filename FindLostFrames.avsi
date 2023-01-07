@@ -27,7 +27,7 @@ Function FindLostFrames(clip c, int "thresh", bool "show", string "ovr", clip "i
     ScriptClip(c, """
         input = IsClip(flf_input) ? flf_input : last
         orig = last
-        # repaired = flf_show ? nnedi3(field = 1, qual = 2, nns = 4).Subtitle("Repaired frame", align = 5, size = 30) : nnedi3(field = 1, qual = 2, nns = 4)
+        repaired = flf_show ? nnedi3(field = -1, qual = 2, nns = 4).Subtitle("Repaired frame", align = 5, size = 30) : nnedi3(field = -1, qual = 2, nns = 4)
         
         args = MidStr(override, 2)
         value = Value(args)
@@ -54,13 +54,13 @@ Function FindLostFrames(clip c, int "thresh", bool "show", string "ovr", clip "i
         use_b = ((((cb_diff > thresh) && (pb_diff > thresh) && (nb_diff > thresh)) || (override == "b")) && (override != "-")) ? true : false
         use_t = ((((ct_diff > thresh) && (pt_diff > thresh) && (nt_diff > thresh)) || (override == "t")) && (use_b == false) && (override != "-")) ? true : false
         
-        # (override == "+") ? repaired : last
         use_b ? flf_hq_b : last
         use_t ? flf_hq_t : last
+        (override == "+") ? repaired : last
         
         report = ""
-        report = use_b ? " # bottom field interpolated" : report
-        report = use_t ? " # top field interpolated" : report
+        report = use_b ? " # bottom field" : report
+        report = use_t ? " # top field" : report
         
         flf_output != "" ? WriteFileIf(last, flf_output, "(use_b == true) || (use_t == true)", "current_frame", "report") : last
 
