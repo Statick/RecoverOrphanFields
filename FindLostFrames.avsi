@@ -1,6 +1,7 @@
 # FindLostFrames v0.1
+# by Statick
 #
-# script to find hidden animation frames dropped by IVTC pattern matching
+# AVS script to find hidden animation frames dropped by IVTC pattern matching
 # call FindLostFrames_Setup() immediately before IVTC
 # call FindLostFrames() immediately after IVTC
 
