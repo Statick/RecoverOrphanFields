@@ -111,9 +111,7 @@ the override instructions supported by this script are
 b : overwrite this frame by interpolating the bottom field from the original frame
 t : overwrite this frame by interpolating the top field from the original frame
 v : use a new threshold value, the new value must be a number and must come after the v and after a space
-+ (plus sign) : interpolate a new frame from the bottom field of the IVTC output rather than either of the
-    original fields, this may be useful if you have a frame in your IVTC output which exhibits a lot of 
-    combing artifacts but you don't want your IVTC post processing to deal with it
++ (plus sign) : interpolate a new frame from the IVTC output rather than the original fields
 ```
 
 ```
