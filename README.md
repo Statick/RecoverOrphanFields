@@ -1,32 +1,31 @@
-# FindLostFrames
+# RecoverOrphanFields
 AviSynth script to find single-field animation frames dropped by IVTC field matching
 
 ### The problem
-Often when performing IVTC on animated material, where there is animation on every frame things like scrolling backgrounds can end up jerky, and stepping through the frames before decimating reveals that instead of producing the expected 4 animated frames and 1 duplicated frame, the IVTC has generated additional duplicated frames which randomly interrupt the animation, replacing frames which look like they should have been animated. With a correct pattern of 4 animated frames and 1 dup, a scrolling background will move the same amount each frame, pausing on the dup frame, then continuing to move the same amount. But with these additional duplicated frames, the scrolling background will get "stuck" and then jump double the distance after the dup - suggesting that a frame of animation has been lost. You can also see this after decimation, when on certain frames a scrolling background will jump twice as far compared to the other frames, as if a frame is simply missing entirely. This script is designed to find those "lost" frames and insert them back into the video
+I often find when performing IVTC on animated material, that there will be orphaned fields - single fields that don't have a matching field that allow them to be combined into a full frame - that yet contain good frames of animation. The standard IVTC response to these is to drop them in favour of good matches, and this probably makes sense most of the time, but with animated material this can mean good frames of animation get lost and replaced with duplicates of a neighouring frame, and in scenes where there is animation on every frame - such as with scrolling backgrounds - this results in jerky animation as frames get seemingly randomly replaced with duplicates of their neighbours. You can see this if you step through the output of your IVTC on scenes where there is animation on every frame, and if you see additional duplicates beyond the expected 1-in-5, and that after certain duplicates the scrolling background jumps twice as far as it does on the other frames - this indicates a frame has been replaced with a duplicate of a neighbour. 
 
-### The cause
-The reason for this is that the "lost" frame of animation only existed on a single field in the original video, so the IVTC field matcher was unable to find a match for it. These single-field images would have been displayed on an interlaced CRT display, but an IVTC looking to match up full frames will discard these and replace them with a duplicate of a neighbouring frame, which it matched from the other field. This is most commonly visible in scrolling backgrounds that get "stuck" as random frames get replaced with duplicates, although they can appear anywhere where there is animation on every frame. If you find one of these duplicated frames, and manually override the field match without post-processing, one of the match options will give you a heavily combed frame with the "missing" frame visible in the combing - key details in the image won't match up with either neighbouring frame - but because it only exists as one field, the IVTC will normally drop it. You can sometimes manually override these matches and then let the post-processing clean it up, and it will interpolate that field to produce the missing frame in your output - but as the post processing follows the field parity of the video, this only works if the missing frame exists in the correct field (i.e if your video is TFF then the post processor will interpolate the top field, which is great if that's where your missing frame is, but no good at all if your missing frame is in the bottom field). Not to mention that manually finding these duplicate frames in a video where 20% of frames are already duplicates, and much of the video won't have animation on every frame anyway, is very time consuming!
+These animation frames would have been displayed on an interlaced CRT display, and you'll find that if you bob your video to 60fps then these animation frames appear as single frames in the output (when most animation frames will appear for 2 or 3 frames), but when you perform IVTC they are lost and replaced with a dup of a neighbour, resulting in jerky animation. This script is designed to find those lost frames and insert them back into the video. I have tried numerous settings in multiple IVTC functions, including lots of manual work in YATTA, and none of them seem to have a way to reliably recover these orphaned fields and produce the smooth animation that was intended, the best I have achieved is with manual frame matching overrides to force the field into a match, followed by post processing to interpolate that field into a full frame, but post processing will interpolate the same field every time which means half of your orphans still get lost. And this also requires you to find the orphaned fields yourself in the first place, which is not easy
 
 ### The solution
-This script is designed to find these missing frames and insert them back into the video. It works by performing a very basic (fast) interpolation of each field of a frame, producing a full frame from each, and then comparing these with the output of your IVTC to see if they match with the current frame, or with either of the nearest neighbours. If one of the interpolated frames has no matches in the IVTC output then it's considered a "missing" frame, and a higher-quality (slower) interpolation is created and overwritten to the output. A faster interpolation is done initially as this has to be done twice for every frame so it will impact processing speed, the slower interpolation only needs to be done as needed
+This script is designed to find these orphaned fieds automatically, interpolate them into full frames, and insert them back into the video. It works by performing a very basic (fast) interpolation of each field of a frame, producing a full frame from each, and then comparing these with the output of your IVTC to see if they match with the either current frame, or with one of the nearest neighbours. If one of the interpolated frames has no matches in the IVTC output then it's considered a "missing" frame, and a higher-quality (slower) interpolation is created and overwritten to the output. A faster interpolation is done initially as this has to be done twice for every frame,, the slower interpolation only needs to be done as needed
 
 ### More info
-These "missing" frames are sometimes very noisy, particularly in chroma, as they were missing half the information that other frames had, and they often land near scene changes as well. To help with cleaning this up, it's possible to generate an output file that lists all the frames that were replaced, you could use this information to process those frames separately from the rest of the video. Because of how noisy these frames can be, I've found that the best way of identifying matches has been by comparing edge masks rather than complete images - for this reason I don't think this script will work at all on footage that is not animation (I don't think this problem really exists outside of animation anyway though). The script works very well on the videos I'm working on, finding hundreds of missing frames resulting in much smoother and cleaner animation, while generating a small number of false positives. 
+Recovered frames are sometimes very noisy, as they were missing half the information that other frames had, and they often land near scene changes as well. To help with cleaning this up, it's possible to generate an output file that lists all the frames that were recovered, you could use this information to run additional denoising on those frames if you wish. Because of how noisy these frames can be, I've found that the best way of identifying matches has been by comparing edge masks rather than complete images - for this reason I don't think this script will work at all on footage that is not animation (I don't think this problem actually exists outside of animation anyway though). The script works very well on the videos I'm working on, finding hundreds of missing frames resulting in much smoother and cleaner animation, while generating a small number of false positives. 
 
 ### False positives
-This script does not give a flawless output without some manual intervention, and you will need to clean up a few false positives. It's very easy to spot these while inspecting the output if you enable show=true and merge=true - false positives will match visually with a neighbouring frame - so it doesn't take long to inspect the results and clean these up using an override file. It's generally whole specific scenes that confuse the algorithm the most, and you'll suddenly get many false positives in a short range of frames, so it's usually easiest to override the whole scene. Also note that if you have field matching overrides in your IVTC you can end up dropping whole good frames from your IVTC, this script will find these and insert them back twice (once per field) - this will look like 2 identical replaced frames in a row. If you find this happening, check your IVTC settings as that's probably where the problem lies
+This is a simple script and it does not give a flawless output without some manual intervention, and you will need to clean up a few false positives. It's very easy to spot these while inspecting the output if you enable show=true and merge=true - false positives will match visually with a neighbouring frame - so it doesn't take long to inspect the results and clean these up using an override file. It's generally very noisy scenes that confuse the algorithm the most, and usually ones that don't have animation on every frame, so generally false positives will be concentrated in a few scenes that you can easily override entirely. Also note that if you have field matching overrides in your IVTC you can accidentally end up dropping whole good frames from your IVTC (i.e frames that do have two matching fields), this script will find these and insert them back twice (once per field) - this will look like 2 identical replaced frames in a row. If you find this happening, check your IVTC settings as it's better to correct it there and output the original frame once
 
 ### How to use it
 There are two functions that must both be called, the first one goes immediately before your IVTC function (TFM / Telecide / etc) to interpolate the two fields into new frames, and the second function goes immediately after your IVTC, and before your decimation, to see if either of these frames are in fact missing from the output. The script uses NNEDI3 to interpolate fields so this must exist in your Avisynth plugins path. The default settings work well on the videos I'm working on, I have no idea how effective it will be on other sources
 ```
 # example usage
-FindLostFrames_Setup()
+RecoverOrphanFields_Setup()
 Telecide()
-FindLostFrames()
+RecoverOrphanFields()
 Decimate()
 ```
 
-##### FindLostFrames_Setup(clip c, bool "show")
+##### RecoverOrphanFields_Setup(clip c, bool "show")
 
 This must be called immediately before your IVTC function, it interpolates the fields before IVTC rearranges them into full frames. It doesn't change the output and won't affect the IVTC in any way, just make sure this is called immediately before your IVTC, and as with all IVTC functions there must be no processing beforehand that could affect the fields (no cropping smoothing etc)
 
@@ -38,7 +37,7 @@ show -
     default: false
 ```
 
-##### FindLostFrames(clip c, int "thresh", int "dthresh", bool "show", bool "merge", string "ovr", clip "input")
+##### RecoverOrphanFields(clip c, int "thresh", int "dthresh", bool "show", bool "merge", string "ovr", clip "input")
 
 This must be called immediately after the IVTC and before the Decimation, and does the job of replacing duplicate 
 frames with the lost frames that it finds
@@ -90,10 +89,10 @@ input -
     default: null
 
     # example usage if you want to show TFM metrics on screen
-    FindLostFrames_Setup(show = true)
+    RecoverOrphanFields_Setup(show = true)
     tfm_visible = TFM(show = true)
     tfm_clean = TFM(show = false)
-    tfm_visible.FindLostFrames(show = true, input = tfm_clean)
+    tfm_visible.RecoverOrphanFields(show = true, input = tfm_clean)
     
 output -
     path to a plain text output file. any frames that are replaced by this script will be logged to this 
