@@ -51,9 +51,9 @@ thresh -
     default: 30
     
 dthresh -
-    an upper threshold used to remove false positives from the detection, lower values will prevent more false
-    positives. if unspecified, will be the same as `thresh`. raising this to a very high value like 100 will
-    prevent false positives from being detected
+    an upper threshold used to remove false positives from the detection, lower values will prevent more 
+    false positives. if unspecified, will be the same as `thresh`. raising this to a very high value like 
+    100 will prevent false positives from being detected
     
     default: same as thresh
     
@@ -63,8 +63,8 @@ show -
     then that field doesn't have a match so is considered a "missing" frame, and will be inserted into the 
     output. however if the difference between the highest and lowest values is higher than dthresh then 
     it's considered a false positive and won't be used. replaced frames and removed false positives will 
-    also be indicated with the metrics. this info is displayed top-right so as not to interfere with metrics 
-    being displayed by TFM or Telecide
+    also be indicated with the metrics. this info is displayed top-right so as not to interfere with 
+    metrics being displayed by TFM or Telecide
     
     default: false
     
@@ -81,11 +81,11 @@ ovr -
     default: ""
     
 input -
-    here you can send a different clip to be inspected for frame matches, while the output will still be derived 
-    from the main clip "c". this is useful if you want to display TFM/Telecide metrics while you work on the 
-    video, as normally that text being imposed on the video will interfere with the frame matching - instead you 
-    can send a "clean" output from TFM here so that the matching is correct, while still allowing the TFM metrics 
-    to be visible in the output
+    here you can send a different clip to be inspected for frame matches, while the output will still be 
+    derived from the main clip "c". this is useful if you want to display TFM/Telecide metrics while you 
+    work on the video, as normally that text being imposed on the video will interfere with the frame 
+    matching - instead you can send a "clean" output from TFM here so that the matching is correct, while 
+    still allowing the TFM metrics to be visible in the output
     
     default: null
 
@@ -96,7 +96,8 @@ input -
     tfm_visible.FindLostFrames(show = true, input = tfm_clean)
     
 output -
-    path to a plain text output file. any frames that are replaced by this script will be logged to this file 
+    path to a plain text output file. any frames that are replaced by this script will be logged to this 
+    file 
     
     default: ""
 ```
