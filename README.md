@@ -11,15 +11,19 @@ The reason for this is that the "lost" frame of animation only existed on a sing
 This script is designed to find these missing frames and insert them back into the video. It works by performing a very basic (fast) interpolation of each field of a frame, producing a full frame from each, and then comparing these with the output of your IVTC to see if they match with the current frame, or with either of the nearest neighbours. If one of the interpolated frames has no matches in the IVTC output then it's considered a "missing" frame, and a higher-quality (slower) interpolation is created and overwritten to the output. A faster interpolation is done initially as this has to be done twice for every frame so it will impact processing speed, the slower interpolation only needs to be done as needed
 
 ### More info
-These "missing" frames are sometimes very noisy, particularly in chroma, as they were missing half the information that other frames had, and they often land near scene changes as well. To help with cleaning this up, it's possible to generate an output file that lists all the frames that were replaced, you could use this information to process those frames separately from the rest of the video. Because of how noisy these frames can be, I've found that the best way of identifying matches has been by comparing edge masks rather than complete images - for this reason I don't think this script will work at all on footage that is not animation (I don't think this problem really exists outside of animation anyway though). The script works very well on the videos I'm working on, finding hundreds of missing frames resulting in much smoother and cleaner animation, while generating a small number of false positives. It's very easy to spot false positives if processed frames are being highlighted with show=true - false positives will match visually with a neighbouring frame - so it doesn't take long to inspect the results and override these using an override file. Most of the false positives seem to land on fades, where one scene fades to the next, maybe one day I'll figure out a fix for that but honestly it doesn't take long to manually clean up the output. Please understand this is a basic script so don't expect miracles from it!
+These "missing" frames are sometimes very noisy, particularly in chroma, as they were missing half the information that other frames had, and they often land near scene changes as well. To help with cleaning this up, it's possible to generate an output file that lists all the frames that were replaced, you could use this information to process those frames separately from the rest of the video. Because of how noisy these frames can be, I've found that the best way of identifying matches has been by comparing edge masks rather than complete images - for this reason I don't think this script will work at all on footage that is not animation (I don't think this problem really exists outside of animation anyway though). The script works very well on the videos I'm working on, finding hundreds of missing frames resulting in much smoother and cleaner animation, while generating a small number of false positives. 
+
+### False positives
+This script does not give a flawless output without some manual intervention, and you will need to clean up a few false positives. It's very easy to spot these while inspecting the output if you enable show=true and merge=true - false positives will match visually with a neighbouring frame - so it doesn't take long to inspect the results and clean these up using an override file. It's generally whole specific scenes that confuse the algorithm the most, and you'll suddenly get many false positives in a short range of frames, so it's usually easiest to override the whole scene. Also note that if you have field matching overrides in your IVTC you can end up dropping whole good frames from your IVTC, this script will find these and insert them back twice (once per field) - this will look like 2 identical replaced frames in a row. If you find this happening, check your IVTC settings as that's probably where the problem lies
 
 ### How to use it
-There are two functions that must both be called, the first one goes immediately before your IVTC function (TFM / Telecide / etc) to interpolate the two fields into new frames, and the second function goes immediately after your IVTC to see if either of these frames are in fact missing from the output. The script uses NNEDI3 to interpolate fields so this must exist in your Avisynth plugins path. The default settings work well on the videos I'm working on, I have no idea how effective it will be on other sources
+There are two functions that must both be called, the first one goes immediately before your IVTC function (TFM / Telecide / etc) to interpolate the two fields into new frames, and the second function goes immediately after your IVTC, and before your decimation, to see if either of these frames are in fact missing from the output. The script uses NNEDI3 to interpolate fields so this must exist in your Avisynth plugins path. The default settings work well on the videos I'm working on, I have no idea how effective it will be on other sources
 ```
 # example usage
 FindLostFields_Setup()
 Telecide()
 FindLostFields()
+Decimate()
 ```
 
 ##### FindLostFields_Setup(clip c, bool "show")
@@ -34,26 +38,40 @@ show -
     default: false
 ```
 
-##### FindLostFields(clip c, int "thresh", bool "show", string "ovr", clip "input")
+##### FindLostFields(clip c, int "thresh", int "dthresh", bool "show", bool "merge", string "ovr", clip "input")
 
-This must be called immediately after the IVTC and does the job of replacing duplicate frames with the lost 
-frames that it finds
+This must be called immediately after the IVTC and before the Decimation, and does the job of replacing duplicate 
+frames with the lost frames that it finds
 
 ```
 thresh -
-    the threshold that determines whether the interpolated frame matches with existing frames, lower values 
-    result in more frames being found, including more false positives, higher values will result in fewer
-    frames being found. It's easy to find false positives so it's usually better to set this on the lower 
-    side and get too many false positives, and manually clean those up, rather than miss good frames and not
-    know about it
+    the threshold that determines whether the interpolated frame matches with the existing frames, lower 
+    values result in more frames being found. increase this value if you're getting a lot of false positives
     
     default: 30
     
+dthresh -
+    an upper threshold used to remove false positives from the detection, lower values will prevent more false
+    positives. if unspecified, will be the same as `thresh`. raising this to a very high value like 100 will
+    prevent false positives from being detected
+    
+    default: same as thresh
+    
 show - 
-    shows metrics for field matching, for current/previous/next frames and for top/bottom fields, to help find
-    threshold values. if all 3 metrics for either top or bottom field are above the threshold then that field
-    is considered to hold a "missing" frame and will be inserted into the output. metrics are displayed
-    top-right so as not to interfere with metrics being displayed in TFM or Telecide
+    shows metrics for field matching, the values represent how closely each field matches with the 
+    current/previous/next frames. lower values are closer matches, if all 3 values are greater than thresh
+    then that field doesn't have a match so is considered a "missing" frame, and will be inserted into the 
+    output. however if the difference between the highest and lowest values is higher than dthresh then 
+    it's considered a false positive and won't be used. replaced frames and removed false positives will 
+    also be indicated with the metrics. this info is displayed top-right so as not to interfere with metrics 
+    being displayed by TFM or Telecide
+    
+    default: false
+    
+merge -
+    merges the output with the original video when frames are replaced, with the original video being show
+    in greyscale. use this when checking for false positives so you can see how the replaced frane compares
+    to the original as well as the nearest neighbours
     
     default: false
     
