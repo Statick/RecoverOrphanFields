@@ -1,5 +1,5 @@
 # FindLostFrames
-AviSynth script to find animation frames dropped by IVTC field matching
+AviSynth script to find single-field animation frames dropped by IVTC field matching
 
 ### The problem
 Often when performing IVTC on animated material, where there is animation on every frame things like scrolling backgrounds can end up jerky, and stepping through the frames before decimating reveals that instead of producing the expected 4 animated frames and 1 duplicated frame, the IVTC has generated additional duplicated frames which randomly interrupt the animation, replacing frames which look like they should have been animated. With a correct pattern of 4 animated frames and 1 dup, a scrolling background will move the same amount each frame, pausing on the dup frame, then continuing to move the same amount. But with these additional duplicated frames, the scrolling background will get "stuck" and then jump double the distance after the dup - suggesting that a frame of animation has been lost. You can also see this after decimation, when on certain frames a scrolling background will jump twice as far compared to the other frames, as if a frame is simply missing entirely. This script is designed to find those "lost" frames and insert them back into the video
