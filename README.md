@@ -20,13 +20,13 @@ This script does not give a flawless output without some manual intervention, an
 There are two functions that must both be called, the first one goes immediately before your IVTC function (TFM / Telecide / etc) to interpolate the two fields into new frames, and the second function goes immediately after your IVTC, and before your decimation, to see if either of these frames are in fact missing from the output. The script uses NNEDI3 to interpolate fields so this must exist in your Avisynth plugins path. The default settings work well on the videos I'm working on, I have no idea how effective it will be on other sources
 ```
 # example usage
-FindLostFields_Setup()
+FindLostFrames_Setup()
 Telecide()
-FindLostFields()
+FindLostFrames()
 Decimate()
 ```
 
-##### FindLostFields_Setup(clip c, bool "show")
+##### FindLostFrames_Setup(clip c, bool "show")
 
 This must be called immediately before your IVTC function, it interpolates the fields before IVTC rearranges them into full frames. It doesn't change the output and won't affect the IVTC in any way, just make sure this is called immediately before your IVTC, and as with all IVTC functions there must be no processing beforehand that could affect the fields (no cropping smoothing etc)
 
@@ -38,7 +38,7 @@ show -
     default: false
 ```
 
-##### FindLostFields(clip c, int "thresh", int "dthresh", bool "show", bool "merge", string "ovr", clip "input")
+##### FindLostFrames(clip c, int "thresh", int "dthresh", bool "show", bool "merge", string "ovr", clip "input")
 
 This must be called immediately after the IVTC and before the Decimation, and does the job of replacing duplicate 
 frames with the lost frames that it finds
