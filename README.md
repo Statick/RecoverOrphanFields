@@ -17,12 +17,13 @@ These "missing" frames are sometimes very noisy, particularly in chroma, as they
 This script does not give a flawless output without some manual intervention, and you will need to clean up a few false positives. It's very easy to spot these while inspecting the output if you enable show=true and merge=true - false positives will match visually with a neighbouring frame - so it doesn't take long to inspect the results and clean these up using an override file. It's generally whole specific scenes that confuse the algorithm the most, and you'll suddenly get many false positives in a short range of frames, so it's usually easiest to override the whole scene. Also note that if you have field matching overrides in your IVTC you can end up dropping whole good frames from your IVTC, this script will find these and insert them back twice (once per field) - this will look like 2 identical replaced frames in a row. If you find this happening, check your IVTC settings as that's probably where the problem lies
 
 ### How to use it
-There are two functions that must both be called, the first one goes immediately before your IVTC function (TFM / Telecide / etc) to interpolate the two fields into new frames, and the second function goes immediately after your IVTC to see if either of these frames are in fact missing from the output. The script uses NNEDI3 to interpolate fields so this must exist in your Avisynth plugins path. The default settings work well on the videos I'm working on, I have no idea how effective it will be on other sources
+There are two functions that must both be called, the first one goes immediately before your IVTC function (TFM / Telecide / etc) to interpolate the two fields into new frames, and the second function goes immediately after your IVTC, and before your decimation, to see if either of these frames are in fact missing from the output. The script uses NNEDI3 to interpolate fields so this must exist in your Avisynth plugins path. The default settings work well on the videos I'm working on, I have no idea how effective it will be on other sources
 ```
 # example usage
 FindLostFields_Setup()
 Telecide()
 FindLostFields()
+Decimate()
 ```
 
 ##### FindLostFields_Setup(clip c, bool "show")
@@ -39,8 +40,8 @@ show -
 
 ##### FindLostFields(clip c, int "thresh", int "dthresh", bool "show", bool "merge", string "ovr", clip "input")
 
-This must be called immediately after the IVTC and does the job of replacing duplicate frames with the lost 
-frames that it finds
+This must be called immediately after the IVTC and before the Decimation, and does the job of replacing duplicate 
+frames with the lost frames that it finds
 
 ```
 thresh -
