@@ -1,47 +1,47 @@
-# FindLostFrames v0.1
+# RecoverOrphanFields v0.1
 # by Statick
 #
 # AVS script to find hidden animation frames dropped by IVTC pattern matching
-# call FindLostFrames_Setup() immediately before IVTC
-# call FindLostFrames() immediately after IVTC
+# call RecoverOrphanFields_Setup() immediately before IVTC
+# call RecoverOrphanFields() immediately after IVTC
 
-Function FindLostFrames_Setup(clip c, bool "show")
+Function RecoverOrphanFields_Setup(clip c, bool "show")
 {
-    global flf_show = Default(show, false)
-    global flf_hq_b = flf_show ? nnedi3(c, field = 0, qual = 2, nns = 4).Subtitle("Recovered frame (B)", align = 5, size = 30) : nnedi3(c, field = 0, qual = 2, nns = 4)
-    global flf_test_b = nnedi3(c, field = 0, nns = 2)
-    global flf_hq_t = flf_show ? nnedi3(c, field = 1, qual = 2, nns = 4).Subtitle("Recovered frame (T)", align = 5, size = 30) : nnedi3(c, field = 1, qual = 2, nns = 4)
-    global flf_test_t = nnedi3(c, field = 1, nns = 2)
+    global rof_show = Default(show, false)
+    global rof_hq_b = rof_show ? nnedi3(c, field = 0, qual = 2, nns = 4).Subtitle("Recovered frame (B)", align = 5, size = 30) : nnedi3(c, field = 0, qual = 2, nns = 4)
+    global rof_test_b = nnedi3(c, field = 0, nns = 2)
+    global rof_hq_t = rof_show ? nnedi3(c, field = 1, qual = 2, nns = 4).Subtitle("Recovered frame (T)", align = 5, size = 30) : nnedi3(c, field = 1, qual = 2, nns = 4)
+    global rof_test_t = nnedi3(c, field = 1, nns = 2)
 }
 
-Function FindLostFrames(clip c, int "thresh", int "dthresh", bool "show", bool "merge", string "ovr", clip "input", string "output")
+Function RecoverOrphanFields(clip c, int "thresh", int "dthresh", bool "show", bool "merge", string "ovr", clip "input", string "output")
 {
-    global flf_thresh = Default(thresh, 30)
-    global flf_dthresh = Default(dthresh, flf_thresh)
-    global flf_details = Default(show, false)
-    global flf_merge = Default(merge, false)
+    global rof_thresh = Default(thresh, 30)
+    global rof_dthresh = Default(dthresh, rof_thresh)
+    global rof_details = Default(show, false)
+    global rof_merge = Default(merge, false)
     ovr = Default(ovr, "")
-    global flf_input = input
-    global flf_output = Default(output, "")
-    flf_output != "" ? WriteFileStart(c, flf_output, """ "# Frames replaced by FindLostFrames" """) : c
+    global rof_input = input
+    global rof_output = Default(output, "")
+    rof_output != "" ? WriteFileStart(c, rof_output, """ "# Frames replaced by RecoverOrphanFields" """) : c
 
     
     ScriptClip(c, """
-        input = IsClip(flf_input) ? flf_input : last
+        input = IsClip(rof_input) ? rof_input : last
         orig = last
-        repaired = flf_show ? nnedi3(field = -1, qual = 2, nns = 4).Subtitle("Repaired frame", align = 5, size = 30) : nnedi3(field = -1, qual = 2, nns = 4)
+        repaired = rof_show ? nnedi3(field = -1, qual = 2, nns = 4).Subtitle("Repaired frame", align = 5, size = 30) : nnedi3(field = -1, qual = 2, nns = 4)
         
         args = MidStr(override, 2)
         value = Value(args)
-        thresh = (LeftStr(override, 1) == "v") ? value : flf_thresh
-        dthresh = flf_dthresh
-        merge = flf_merge
+        thresh = (LeftStr(override, 1) == "v") ? value : rof_thresh
+        dthresh = rof_dthresh
+        merge = rof_merge
         
         c = input.mt_edge(mode = "prewitt", thy1=10, thy2=10).mt_inpand()
         p = input.SelectEvery(1, -1).mt_edge(mode = "prewitt", thy1=10, thy2=10).mt_inpand()
         n = input.SelectEvery(1, 1).mt_edge(mode = "prewitt", thy1=10, thy2=10).mt_inpand()
-        b = flf_test_b.mt_edge(mode = "prewitt", thy1=10, thy2=10).mt_inpand()
-        t = flf_test_t.mt_edge(mode = "prewitt", thy1=10, thy2=10).mt_inpand()
+        b = rof_test_b.mt_edge(mode = "prewitt", thy1=10, thy2=10).mt_inpand()
+        t = rof_test_t.mt_edge(mode = "prewitt", thy1=10, thy2=10).mt_inpand()
         cb_diff = LumaDifference(b, c)
         pb_diff = LumaDifference(b, p)
         nb_diff = LumaDifference(b, n)
@@ -69,10 +69,10 @@ Function FindLostFrames(clip c, int "thresh", int "dthresh", bool "show", bool "
         use_b = use_b && (falsepos == false) ? use_b : false
         use_t = use_t && (falsepos == false) ? use_t : false
         
-        use_b && !merge ? flf_hq_b : last
-        use_t && !merge ? flf_hq_t : last
-        use_b && merge ? Merge(last.Greyscale(), flf_hq_b, 0.7) : last
-        use_t && merge ? Merge(last.Greyscale(), flf_hq_t, 0.7) : last
+        use_b && !merge ? rof_hq_b : last
+        use_t && !merge ? rof_hq_t : last
+        use_b && merge ? Merge(last.Greyscale(), rof_hq_b, 0.7) : last
+        use_t && merge ? Merge(last.Greyscale(), rof_hq_t, 0.7) : last
         
         (override == "+") ? repaired : last
         
@@ -82,7 +82,7 @@ Function FindLostFrames(clip c, int "thresh", int "dthresh", bool "show", bool "
         report = falsepos ? " # false positive removed" : report
         
         
-        flf_output != "" ? WriteFileIf(last, flf_output, "(use_b == true) || (use_t == true) || (falsepos == true)", "current_frame", "report") : last
+        rof_output != "" ? WriteFileIf(last, rof_output, "(use_b == true) || (use_t == true) || (falsepos == true)", "current_frame", "report") : last
 
         text = "Thresh: " + String(thresh) + "\n\n" + \
                 "top c: " + String(ct_diff) + "\n" + "top p: " + String(pt_diff) + "\n" + "top n: " + String(nt_diff) + "\n\n" + \
@@ -93,7 +93,7 @@ Function FindLostFrames(clip c, int "thresh", int "dthresh", bool "show", bool "
         text = use_b ? text + "Bottom field interpolated" : text
         text = falsepos ? text + "False positive removed" : text
                 
-        flf_details ? Subtitle(text, lsp=10, align=9) : last        
+        rof_details ? Subtitle(text, lsp=10, align=9) : last        
     """)
     output = (ovr != "") ? ConditionalReader(ovr, "override") : FrameEvaluate(""" override = "" """)
     return output
