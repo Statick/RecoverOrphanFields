@@ -34,26 +34,33 @@ show -
     default: false
 ```
 
-##### FindLostFields(clip c, int "thresh", bool "show", string "ovr", clip "input")
+##### FindLostFields(clip c, int "thresh", int "dthresh", bool "show", string "ovr", clip "input")
 
 This must be called immediately after the IVTC and does the job of replacing duplicate frames with the lost 
 frames that it finds
 
 ```
 thresh -
-    the threshold that determines whether the interpolated frame matches with existing frames, lower values 
-    result in more frames being found, including more false positives, higher values will result in fewer
-    frames being found. It's easy to find false positives so it's usually better to set this on the lower 
-    side and get too many false positives, and manually clean those up, rather than miss good frames and not
-    know about it
+    the threshold that determines whether the interpolated frame matches with the existing frames, lower 
+    values result in more frames being found. increase this value if you're getting a lot of false positives
     
     default: 30
     
+dthresh -
+    an upper threshold used to remove false positives from the detection, lower values will prevent more false
+    positives. if unspecified, will be the same as `thresh`. raising this to a very high value like 100 will
+    prevent false positives from being detected
+    
+    default: same as thresh
+    
 show - 
-    shows metrics for field matching, for current/previous/next frames and for top/bottom fields, to help find
-    threshold values. if all 3 metrics for either top or bottom field are above the threshold then that field
-    is considered to hold a "missing" frame and will be inserted into the output. metrics are displayed
-    top-right so as not to interfere with metrics being displayed in TFM or Telecide
+    shows metrics for field matching, the values represent how closely each field matches with the 
+    current/previous/next frames. lower values are closer matches, if all 3 values are greater than thresh
+    then that field doesn't have a match so is considered a "missing" frame, and will be inserted into the 
+    output. however if the difference between the highest and lowest values is higher than dthresh then 
+    it's considered a false positive and won't be used. replaced frames and removed false positives will 
+    also be indicated with the metrics. this info is displayed top-right so as not to interfere with metrics 
+    being displayed by TFM or Telecide
     
     default: false
     
