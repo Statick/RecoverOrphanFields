@@ -1,4 +1,4 @@
-# RecoverOrphanFields v0.1
+# RecoverOrphanFields v0.2
 # by Statick
 #
 # AVS script to find hidden animation frames dropped by IVTC pattern matching
@@ -8,21 +8,27 @@
 Function RecoverOrphanFields_Setup(clip c, bool "show")
 {
     global rof_show = Default(show, false)
-    global rof_hq_b = rof_show ? nnedi3(c, field = 0, qual = 2, nns = 4).Subtitle("Recovered frame (B)", align = 5, size = 30) : nnedi3(c, field = 0, qual = 2, nns = 4)
+    global rof_hq_b = rof_show ? nnedi3(c, field = 0, qual = 2, nns = 4, nsize = 3).Subtitle("Recovered frame (B)", align = 5, size = 30) : nnedi3(c, field = 0, qual = 2, nns = 4, nsize = 3)
     global rof_test_b = nnedi3(c, field = 0, nns = 2)
-    global rof_hq_t = rof_show ? nnedi3(c, field = 1, qual = 2, nns = 4).Subtitle("Recovered frame (T)", align = 5, size = 30) : nnedi3(c, field = 1, qual = 2, nns = 4)
+    global rof_hq_t = rof_show ? nnedi3(c, field = 1, qual = 2, nns = 4, nsize = 3).Subtitle("Recovered frame (T)", align = 5, size = 30) : nnedi3(c, field = 1, qual = 2, nns = 4, nsize = 3)
     global rof_test_t = nnedi3(c, field = 1, nns = 2)
 }
 
-Function RecoverOrphanFields(clip c, int "thresh", bool "show", bool "merge", string "ovr", clip "input", string "output")
+Function RecoverOrphanFields(clip c, int "sens", int "delta", bool "show", bool "debug", bool "merge", string "ovr", clip "input", string "output")
 {
-    global rof_thresh = Default(thresh, 30)
-    global rof_details = Default(show, false)
+    global rof_sens = Default(sens, 30)
+    global rof_delta = Default(delta, 40)
+    global rof_show = Default(show, false)
+    global rof_debug = Default(debug, false)
     global rof_merge = Default(merge, false)
     ovr = Default(ovr, "")
     global rof_input = input
     global rof_output = Default(output, "")
-    rof_output != "" ? WriteFileStart(c, rof_output, """ "# Frames replaced by RecoverOrphanFields" """) : c
+    
+    global rof_text = "# Frames replaced by RecoverOrphanFields" + Chr(10) + \
+        "# sens: " + String(rof_sens) 
+        
+    rof_output != "" ? WriteFileStart(c, rof_output, "rof_text") : c
 
     
     ScriptClip(c, """
@@ -31,12 +37,14 @@ Function RecoverOrphanFields(clip c, int "thresh", bool "show", bool "merge", st
         
         args = MidStr(override, 2)
         value = Value(args)
-        thresh = (LeftStr(override, 1) == "v") ? value : rof_thresh
-        dthresh = 100
+        sens = (LeftStr(override, 1) == "s") ? value : rof_sens
         merge = rof_merge
+        sc_thresh = 70
+        sc_sens = 10
+        delta_thresh = (LeftStr(override, 1) == "d") ? value : rof_delta
         
-        falsemin = 0.15
-        falsemax = 0.5
+        simple_check = (sens < 0) ? true : false
+        sens = Abs(sens)
         
         c = input.mt_edge(mode = "prewitt", thy1=10, thy2=10).mt_inpand()
         p = input.SelectEvery(1, -1).mt_edge(mode = "prewitt", thy1=10, thy2=10).mt_inpand()
@@ -54,58 +62,94 @@ Function RecoverOrphanFields(clip c, int "thresh", bool "show", bool "merge", st
         min_t = Min(ct_diff, pt_diff, nt_diff)
         max_b = Max(cb_diff, pb_diff, nb_diff)
         max_t = Max(ct_diff, pt_diff, nt_diff)
+        mid_b = 0
+        mid_t = 0
+        mid_b = ((max_b == cb_diff) && (min_b == pb_diff)) || ((max_b == pb_diff) && (min_b == cb_diff)) ? nb_diff : mid_b
+        mid_b = ((max_b == cb_diff) && (min_b == nb_diff)) || ((max_b == nb_diff) && (min_b == cb_diff)) ? pb_diff : mid_b
+        mid_b = ((max_b == pb_diff) && (min_b == nb_diff)) || ((max_b == nb_diff) && (min_b == pb_diff)) ? cb_diff : mid_b
+        mid_t = ((max_t == ct_diff) && (min_t == pt_diff)) || ((max_t == pt_diff) && (min_t == ct_diff)) ? nt_diff : mid_t
+        mid_t = ((max_t == ct_diff) && (min_t == nt_diff)) || ((max_t == nt_diff) && (min_t == ct_diff)) ? pt_diff : mid_t
+        mid_t = ((max_t == pt_diff) && (min_t == nt_diff)) || ((max_t == nt_diff) && (min_t == pt_diff)) ? ct_diff : mid_t
+        
         tot_b = cb_diff + pb_diff + nb_diff
         tot_t = ct_diff + pt_diff + nt_diff
+                
+        # check for scene change
+        sc_b = (max_b > sc_thresh) && (max_b - mid_b > mid_b - min_b) && (max_t - mid_t > mid_t - min_t) ? true : false
+        sc_t = (max_t > sc_thresh) && (max_t - mid_t > mid_t - min_t) && (max_b - mid_b > mid_b - min_b) ? true : false
         
-        use_b = false
-        use_t = false
-            
-        # basic algorithm - are all 3 metrics over threshold, if true for both fields choose the one with highest metrics
-        use_b = (((min_b > thresh) && !(min_t > thresh && tot_t > tot_b) && (override != "-")) || (override == "b")) ? true : false
-        use_t = (((min_t > thresh) && !(min_b > thresh && tot_b > tot_t) && (override != "-")) || (override == "t")) ? true : false
+        # detect algo
+        xb = sc_b ? Min(Abs(cb_diff - pb_diff), Abs(cb_diff - nb_diff)) + sens + sc_sens : Abs(cb_diff - pb_diff) + Abs(cb_diff - nb_diff) + sens
+        xt = sc_t ? Min(Abs(ct_diff - pt_diff), Abs(ct_diff - nt_diff)) + sens + sc_sens : Abs(ct_diff - pt_diff) + Abs(ct_diff - nt_diff) + sens
+        thresh_b = min_b
+        thresh_t = min_t
+        use_b = (xb < thresh_b || (simple_check && min_b > sens) || override == "b") && (override != "t") && (override != "-") ? true : false
+        use_t = (xt < thresh_t || (simple_check && min_t > sens) || override == "t") && (override != "b") && (override != "-") ? true : false
+                
+        # check deltas
+        dx_b = max_b - mid_b
+        dy_b = mid_b - min_b
+        delta_b = dy_b / dx_b
+        dx_t = max_t - mid_t
+        dy_t = mid_t - min_t
+        delta_t = dy_t / dx_t
         
-        # simple false pos detect - is maximum diff higher than minimum diff by more than dthresh 
-        falsepos_1 = (use_b && ((max_b - min_b) > dthresh)) || (use_t && ((max_t - min_t) > dthresh)) ? true : false
-        
-        # complex false pos detect - is one frame diff significantly lower than the other 2 diff, if so it's probably a match
-        # higher 2 diffs must be within falsemin of each other and falsemax higher than minimum diff
-        
-        falsepos_2 = false
-        falsepos_2 = (use_b && (cb_diff == min_b) && (Abs(pb_diff - nb_diff) < Min(pb_diff, nb_diff) * falsemin) && (Min(pb_diff, nb_diff) - cb_diff > cb_diff * falsemax)) ? true : falsepos_2
-        falsepos_2 = (use_b && (pb_diff == min_b) && (Abs(cb_diff - nb_diff) < Min(cb_diff, nb_diff) * falsemin) && (Min(cb_diff, nb_diff) - pb_diff > pb_diff * falsemax)) ? true : falsepos_2
-        falsepos_2 = (use_b && (nb_diff == min_b) && (Abs(cb_diff - pb_diff) < Min(cb_diff, pb_diff) * falsemin) && (Min(cb_diff, pb_diff) - nb_diff > nb_diff * falsemax)) ? true : falsepos_2
-        falsepos_2 = (use_t && (ct_diff == min_t) && (Abs(pt_diff - nt_diff) < Min(pt_diff, nt_diff) * falsemin) && (Min(pt_diff, nt_diff) - ct_diff > ct_diff * falsemax)) ? true : falsepos_2
-        falsepos_2 = (use_t && (pt_diff == min_t) && (Abs(ct_diff - nt_diff) < Min(ct_diff, nt_diff) * falsemin) && (Min(ct_diff, nt_diff) - pt_diff > pt_diff * falsemax)) ? true : falsepos_2
-        falsepos_2 = (use_t && (nt_diff == min_t) && (Abs(ct_diff - pt_diff) < Min(ct_diff, pt_diff) * falsemin) && (Min(ct_diff, pt_diff) - nt_diff > nt_diff * falsemax)) ? true : falsepos_2
+        # remove frames that match on both fields
+        falsepos_dbl = (use_b && use_t && override != "+" && override != "b" && override != "d") ? true : false
 
-        falsepos = ((falsepos_1 || falsepos_2) && (override != "+")) ? true : false
+        # remove likely matches with a high delta (this means two highest metrics are far away from the lowest metric, indicating a likely frame match)
+        falsepos_delta = (((use_b && (delta_b > delta_thresh && thresh_b - xb < sens)) || (use_t && (delta_t > delta_thresh && thresh_t - xt < sens))) && override != "+" && override != "b" && override != "t") ? true : false    
+
+        # remove false positives
+        falsepos = (falsepos_dbl || falsepos_delta) ? true : false
+        use_b = (use_b && !falsepos) ? true : false
+        use_t = (use_t && !falsepos) ? true : false
         
-        use_b = use_b && (falsepos == false) ? use_b : false
-        use_t = use_t && (falsepos == false) ? use_t : false
-        
-        use_b && !merge ? rof_hq_b : last
-        use_t && !merge ? rof_hq_t : last
-        use_b && merge ? Merge(Greyscale(last), rof_hq_b, 0.7) : last
-        use_t && merge ? Merge(Greyscale(last), rof_hq_t, 0.7) : last
+        # replace frame
+        (use_b && !merge) ? rof_hq_b : last
+        (use_t && !merge) ? rof_hq_t : last
+        (use_b && merge) ? Merge(Greyscale(last), rof_hq_b, 0.8) : last
+        (use_t && merge) ? Merge(Greyscale(last), rof_hq_t, 0.8) : last
                 
         # log output
         report = ""
-        report = use_b ? " # bottom field (" + String(min_b) + " - " + String(max_b) + ")" : report
-        report = use_t ? " # top field (" + String(min_t) + " - " + String(max_t) + ")" : report        
-        rof_output != "" ? WriteFileIf(last, rof_output, "(use_b == true) || (use_t == true) || (falsepos == true)", "current_frame", "report") : last
+        report = use_b ? " # bottom field (x:" + String(xb) + " - th:" + String(thresh_b) + " - d: " + String(delta_b) + ")" : report
+        report = use_t ? " # top field (x:" + String(xt) + " - th:" + String(thresh_t) + " - d: " + String(delta_t) + ")" : report    
+        report = (use_b || use_t) && (override != "") ? report + " ovr: '" + override + "'" : report
+        
+        rof_output != "" ? WriteFileIf(last, rof_output, "(use_b == true) || (use_t == true)", "current_frame", "report") : last
 
         # on screen metrics
-        text = "Thresh: " + String(thresh) + "\n\n" + \
-                "top c: " + String(ct_diff) + "\n" + "top p: " + String(pt_diff) + "\n" + "top n: " + String(nt_diff) + "\n\n" + \
-                "bot c: " + String(cb_diff) + "\n" + "bot p: " + String(pb_diff) + "\n" + "bot n: " + String(nb_diff) + "\n\n" 
+        text = ((!use_b && xb < thresh_b + 5) || (!use_t && xt < thresh_t + 5)) ? "* " : ""
+        text = text + "sens: " + String(sens)
+        text = simple_check ? text + " (simple)\n\n" : text + "\n\n"
+        
+        text = text + "top:\n" + \
+                "X: " + String(xt) + "\n" + \
+                "thresh: " + String(thresh_t) + "\n" + \
+                "delta: " + String(delta_t) + "\n\n"
                 
-        text = use_t ? text + "Top field interpolated" : text
-        text = use_b ? text + "Bottom field interpolated" : text
-        text = (falsepos && falsepos_1) ? text + "false positive removed (dthresh " + String(dthresh) + ")\n" : text
-        text = (falsepos && falsepos_2) ? text + "false positive removed (smart)\n" : text
+        text = rof_debug ? text + "p: " + String(pt_diff) + "\n" + "c: " + String(ct_diff) + "\n" + "n: " + String(nt_diff) + "\n\n" : text
                 
-        rof_details ? Subtitle(text, lsp=10, align=9) : last        
-    """)
+        text = text + "bot:\n" + \
+                "X: " + String(xb) + "\n" + \
+                "thresh: " + String(thresh_b) + "\n" + \
+                "delta: " + String(delta_b) + "\n\n"
+        
+        text = rof_debug ? text + "p: " + String(pb_diff) + "\n" + "c: " + String(cb_diff) + "\n" + "n: " + String(nb_diff) + "\n\n" : text
+                        
+        text = falsepos_dbl ? text + "false pos removed (double match)\n" : text
+        text = falsepos_delta ? text + "false pos removed (delta)\n" : text
+        text = (override != "") ? text + "ovr: " + override + "\n" : text
+        
+        text = (sc_b || sc_t) ? text + "sc\n" : text
+                       
+        text = use_t ? text + "Top field interpolated\n" : text
+        text = use_b ? text + "Bottom field interpolated\n" : text
+       
+                
+        rof_show ? Subtitle(text, lsp=10, align=9) : last        
+    """, after_frame = true)
     output = (ovr != "") ? ConditionalReader(ovr, "override") : FrameEvaluate(""" override = "" """)
     return output
 }
