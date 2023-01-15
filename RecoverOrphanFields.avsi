@@ -14,7 +14,7 @@ Function RecoverOrphanFields_Setup(clip c, bool "show")
     global rof_test_t = nnedi3(c, field = 1, nns = 2)
 }
 
-Function RecoverOrphanFields(clip c, int "sens", int "delta", bool "show", bool "debug", bool "merge", string "ovr", clip "input", string "output")
+Function RecoverOrphanFields(clip c, int "sens", bool "show", bool "merge", string "ovr", clip "input", string "output")
 {
     global rof_sens = Default(sens, 30)
     global rof_delta = Default(delta, 40)
@@ -41,7 +41,7 @@ Function RecoverOrphanFields(clip c, int "sens", int "delta", bool "show", bool 
         merge = rof_merge
         sc_thresh = 70
         sc_sens = 10
-        delta_thresh = (LeftStr(override, 1) == "d") ? value : rof_delta
+        delta_thresh = rof_delta
         
         simple_check = (sens < 0) ? true : false
         sens = Abs(sens)
@@ -113,8 +113,8 @@ Function RecoverOrphanFields(clip c, int "sens", int "delta", bool "show", bool 
                 
         # log output
         report = ""
-        report = use_b ? " # bottom field (x:" + String(xb) + " - th:" + String(thresh_b) + " - d: " + String(delta_b) + ")" : report
-        report = use_t ? " # top field (x:" + String(xt) + " - th:" + String(thresh_t) + " - d: " + String(delta_t) + ")" : report    
+        report = use_b ? " # bottom field (x:" + String(xb) + " - th:" + String(thresh_b) + ")" : report
+        report = use_t ? " # top field (x:" + String(xt) + " - th:" + String(thresh_t) + ")" : report    
         report = (use_b || use_t) && (override != "") ? report + " ovr: '" + override + "'" : report
         
         rof_output != "" ? WriteFileIf(last, rof_output, "(use_b == true) || (use_t == true)", "current_frame", "report") : last
@@ -126,20 +126,14 @@ Function RecoverOrphanFields(clip c, int "sens", int "delta", bool "show", bool 
         
         text = text + "top:\n" + \
                 "X: " + String(xt) + "\n" + \
-                "thresh: " + String(thresh_t) + "\n" + \
-                "delta: " + String(delta_t) + "\n\n"
-                
-        text = rof_debug ? text + "p: " + String(pt_diff) + "\n" + "c: " + String(ct_diff) + "\n" + "n: " + String(nt_diff) + "\n\n" : text
+                "thresh: " + String(thresh_t) + "\n\n"                 
                 
         text = text + "bot:\n" + \
                 "X: " + String(xb) + "\n" + \
-                "thresh: " + String(thresh_b) + "\n" + \
-                "delta: " + String(delta_b) + "\n\n"
-        
-        text = rof_debug ? text + "p: " + String(pb_diff) + "\n" + "c: " + String(cb_diff) + "\n" + "n: " + String(nb_diff) + "\n\n" : text
+                "thresh: " + String(thresh_b) + "\n\n"         
                         
         text = falsepos_dbl ? text + "false pos removed (double match)\n" : text
-        text = falsepos_delta ? text + "false pos removed (delta)\n" : text
+        text = falsepos_delta ? text + "false pos removed (confidence)\n" : text
         text = (override != "") ? text + "ovr: " + override + "\n" : text
         
         text = (sc_b || sc_t) ? text + "sc\n" : text
