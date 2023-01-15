@@ -2,20 +2,24 @@
 AviSynth script to find single-field animation frames dropped by IVTC field matching
 
 ### The problem
-I often find when performing IVTC on animated material, that there will be orphaned fields - single fields that don't have a matching field that allow them to be combined into a full frame - that yet contain good frames of animation. The standard IVTC response to these is to drop them in favour of good matches, and this probably makes sense most of the time, but with animated material this can mean good frames of animation get lost and replaced with duplicates of a neighouring frame, and in scenes where there is animation on every frame - such as with scrolling backgrounds - this results in jerky animation as frames get seemingly randomly replaced with duplicates of their neighbours. You can see this if you step through the output of your IVTC on scenes where there is animation on every frame, and if you see additional duplicates beyond the expected 1-in-5, and that after certain duplicates the scrolling background jumps twice as far as it does on the other frames - this indicates a frame has been replaced with a duplicate of a neighbour. 
+You may find when performing IVTC on telecined animation, that in sections with animation on every frame (such as scrolling backgrounds) you will get additional duplicate frames beyond the expected 1-in-5, and on these additional duplicates the animation seems to get "stuck" and will then jump double the distance on the next frame. Step through the video, and if a scrolling background moves around 20 pixels each frame, then when it gets "stuck" it will move around 40 pixels the next frame - and what you see on playback is a jerky scrolling background. This is because a frame of animation only appeared as a single field in the telecine, and the IVTC couldn't find a match for that field so it got dropped in favour of a dup. That frame would have appeared on an interlaced CRT, and is a part of the animation, but the IVTC has removed it resulting in a jerky animation. This script is designed to find these orphaned fields, interpolate them into full frames, and insert them back into the video. The result should be smoother, cleaner animation on those sections where animation frames got dropped. If your videos do not exhibit this problem, then this script won't do anything to help you
 
-These animation frames would have been displayed on an interlaced CRT display, and you'll find that if you bob your video to 60fps then these animation frames appear as single frames in the output (when most animation frames will appear for 2 or 3 frames), but when you perform IVTC they are lost and replaced with a dup of a neighbour, resulting in jerky animation. This script is designed to find those lost frames and insert them back into the video, to restore the smooth animation originally created. I have tried numerous settings in multiple IVTC functions, including lots of manual work in YATTA, and none of them seem to have a way to reliably recover these orphaned fields and produce smooth animation, the best I have achieved is with manual frame matching overrides to force the field into a match, followed by post processing to interpolate that field into a full frame, but post processing will interpolate the same field every time which means half of your orphans still get lost. And this also requires you to find the orphaned fields yourself in the first place, which is not easy
-
-### The solution
-This script is designed to find these orphaned fieds automatically, interpolate them into full frames, and insert them back into the video. It works by performing a very basic (fast) interpolation of each field of a frame, producing a full frame from each, and then comparing these with the output of your IVTC to see if they match with the either current frame, or with one of the nearest neighbours. If one of the interpolated frames has no matches in the IVTC output then it's considered a "missing" frame, and a higher-quality (slower) interpolation is created and overwritten to the output. A faster interpolation is done initially as this has to be done twice for every frame,, the slower interpolation only needs to be done as needed
-
-Recovered frames are sometimes very noisy, as they were missing half the information that other frames had, and they often land near scene changes as well. To help with cleaning this up, it's possible to generate an output file that lists all the frames that were recovered, you could use this information to run additional denoising on those frames if you wish. You may wish to use this info for a TDecimate override file as well. Because of how noisy these frames can be, I've found that the best way of identifying matches has been by comparing edge masks rather than complete images - for this reason I don't think this script will work at all on footage that is not animation (I don't think this problem actually exists outside of animation anyway though).
-
-### False positives
-This is a simple script and it does not give a flawless output without some manual intervention, and you will need to clean up a few false positives. It's very easy to spot these while inspecting the output if you enable show=true and merge=true - false positives will match visually with a neighbouring frame - so it doesn't take long to inspect the results and clean these up using an override file. It's generally very noisy scenes that confuse the algorithm the most, and usually ones that don't have animation on every frame, so generally false positives will be concentrated in a few scenes that you can easily override entirely. Also note that if you have field matching overrides in your IVTC you can accidentally end up dropping whole good frames from your IVTC (i.e frames that do have two matching fields), this script will find these and insert them back twice (once per field) - this will look like 2 identical replaced frames in a row. If you find this happening, check your IVTC settings as it's better to correct it there and output the original frame once
+### How it works
+The script interpolates both top and bottom fields of the current frame before the IVTC rearranges them, then compares these to the previous, current, and next frames from the output of the IVTC to see if they match with any existing frames. If no match is found then it's assumed to be a dropped frame and is inserted over the current frame. The matching is done by comparing edge masks, as this seems to be far more effective than comparing the entire image, so it probably won't work on footage that is not animation (I don't think this problem exists outside of animation anyway). The initial interpolations are done using fast settings, as these have to be done twice for every frame, the frame that gets inserted into the video is recreated using much slower settings to get the best possible results
 
 ### How to use it
-There are two functions that must both be called, the first one goes immediately before your IVTC function (TFM / Telecide / etc) to interpolate the two fields into new frames, and the second function goes immediately after your IVTC, and before your decimation, to see if either of these frames are in fact missing from the output. The script uses NNEDI3 to interpolate fields so this must exist in your Avisynth plugins path. The default settings work well on the videos I'm working on, I have no idea how effective it will be on other sources
+There are two functions that must both be called, the first one must go immediately before your IVTC function (TFM / Telecide / etc) to capture the two fields before they get turned into frames by the IVTC, and the second function must go immediately after your IVTC, before your decimation, to see if either of these interpolated frames are in fact missing from the output. The main setting to worry about is 'sens' which determines how sensitive the algorithm is. You'll also want to set 'merge' to true while testing, this merges the new frame over the existing frame so you can check if they actually are different - good results will exhibit a ghost of a neighbouring frame when merge=true (the ghost is the original dup that is being overwritten). If you get a recovered frame that doesn't exhibit ghosting when merge=true then it's a false positive and you'll want to change or override settings
+
+Lower sens values will find more missing frames (and more false positives). The default value of 30 is a good starting point. Set 'show' to true on the output to see metrics to help determine a good sens value - a missing frame is found when the X value for a field is below the shown threshold. The threshold is calculated per field for every frame and changes depending on the content (more movement means higher thresholds), the value you give for sens is simply added to X internally to give the value actually shown for X - so if you start with the default sens of 30 then increase it to 35, the values you see for X will be increased by 5 (and so fewer of them will be higher than the thresholds, meaning fewer found frames). A sensible range for sens is around 20-40, values above 45 will not likely find anything ever, and values below about 15 get increasingly chaotic finding more and more false positive. How the algorithm behaves is very dependent on the content, so you'll tend to find overrides need to happen per scene, generally noisier scenes will want slightly higher sens values
+
+The standard algorithm works well on most scenes, the value for sens usually doesn't need adjusting more than by about 5 up or down depending on the scene, or occasionally forcing a detected frame that was removed as a false positive. However occasionally you may find a section with very low thresholds and quite high X values in the metrics, and where you are certain there are missing frames, but you'd need to set sens to be so low that you would just find thousands of false positives. In these situations there is a second, far simpler algorithm that can be enabled simply by using a negative value for sens (the negative is ignored, the sens value will remain positive). This second simple check is not useful for entire videos as it does not adapt to the content, but on these specific scenes with very low thresholds it becomes useful - if a shown threshold value is higher than sens then that is determined to be a missing frame. I've found a couple of scenes where all the thresholds are around 6-8 except for where there's a missing frame and it jumps up to 24-28, so a sens of -20 here means that any threshold over 20 gets detected, and the missing frames get found accurately. You won't want to use this setting unless you specifically encounter this problem 
+
+### Overrides and false positives
+The script is designed to try to adapt to different scenes, to reduce the amount of manual intervention needed, and it's also got a couple of ways to try to detect false positives and remove them, but it's still simple and far from perfect and will need some manual overrides, or to be run in sections with different settings. Currently there are two ways it can find and remove false positives - a "double match" is simply when both top and bottom fields produce a missing frame, this is highly unlikely to actually be an orphaned field (in most cases it's a full frame that's been dropped from the IVTC by manual overrides). "Confidence" is a second check that tries to intelligently spot if there's a matching frame that didn't get found using the main test. This second test isn't good enough to find matches on its own, but it's very good at finding matches that were missed, and is almost never wrong. If you think you have a missing frame getting caught as a false positive, use an override file to force it
+
+### Dependencies
+Needs NNEDI3 and Masktools2 in your AVS+ plugins path. The script uses ScriptClip() which is unstable in multithreading, I can't get this script to behave in MT and I'm not sure how to fix that, so I don't recommend multithreading sorry
+
 ```
 # example usage
 RecoverOrphanFields_Setup()
@@ -31,45 +35,41 @@ This must be called immediately before your IVTC function, it interpolates the f
 ```
 show - 
     if true then recovered frames will be highlighted "Recovered frame" in large lettering, to make it easy 
-    to check the results to find false positives
+    to check the results to find false positives. this does not show any metrics, it merely highlights the
+    output to help you find frames changed by the script
     
     default: false
 ```
 
-##### RecoverOrphanFields(clip c, int "thresh", int "dthresh", bool "show", bool "merge", string "ovr", clip "input")
+##### RecoverOrphanFields(clip c, int "sens", bool "show", bool "merge", string "ovr", clip "input", string "output")
 
 This must be called immediately after the IVTC and before the Decimation, and does the job of replacing duplicate 
 frames with the lost frames that it finds
 
 ```
-thresh -
-    the threshold that determines whether the interpolated frame matches with the existing frames, lower 
-    values result in more frames being found. increase this value if you're getting a lot of false positives
+sens -
+    the main setting you are interested in, this changes the sensitivity of the algorithm,  lower values will 
+    find more missing frames (and more false positives). if you display metrics using show=true, this value 
+    directly changes the values shown for X. the value for sens is simply added to X internally to give the
+    value actually shown, so if you increase sens by 5 then the values shown for X will be increased by 5
     
     default: 30
     
-dthresh -
-    an upper threshold used to remove false positives from the detection, lower values will prevent more 
-    false positives. if unspecified, will be the same as `thresh`. raising this to a very high value like 
-    100 will prevent false positives from being detected
-    
-    default: same as thresh
-    
 show - 
-    shows metrics for field matching, the values represent how closely each field matches with the 
-    current/previous/next frames. lower values are closer matches, if all 3 values are greater than thresh
-    then that field doesn't have a match so is considered a "missing" frame, and will be inserted into the 
-    output. however if the difference between the highest and lowest values is higher than dthresh then 
-    it's considered a false positive and won't be used. replaced frames and removed false positives will 
-    also be indicated with the metrics. this info is displayed top-right so as not to interfere with 
-    metrics being displayed by TFM or Telecide
+    shows metrics for field matching, values are shown for top and bottom fields. X is how likely that field
+    matches an existing frame, if X is below threshold then it's determined to be a missing frame. threshold
+    is calculated per frame and cannot be adjusted. recovered frames will be indicated, and false positives
+    detected and removed will also be indicated. lastly a * will be shown at the top as a hint, this indicates
+    that although a missing frame was not found, reducing sens by 5 would produce a missing frame. may be 
+    useful if you're scanning over the video and not finding any missing frames
     
     default: false
     
 merge -
-    merges the output with the original video when frames are replaced, with the original video being show
-    in greyscale. use this when checking for false positives so you can see how the replaced frane compares
-    to the original as well as the nearest neighbours
+    merges recovered frames with the original video instead of overwriting entirely - use this when testing, 
+    if the recovered frame is a genuine missing frame then you will see ghosting of a neighbour frame (which
+    had been duplicated here). if you don't see ghosting of a neighbour frame then that means the recovered 
+    frame perfectly matches the existing frame 
     
     default: false
     
@@ -79,23 +79,22 @@ ovr -
     default: ""
     
 input -
-    here you can send a different clip to be inspected for frame matches, while the output will still be 
-    derived from the main clip "c". this is useful if you want to display TFM/Telecide metrics while you 
-    work on the video, as normally that text being imposed on the video will interfere with the frame 
-    matching - instead you can send a "clean" output from TFM here so that the matching is correct, while 
-    still allowing the TFM metrics to be visible in the output
+    here you can send a different clip to be inspected for field matches, while the output will still 
+    be derived from the main clip "c". the field matching is influenced by noise in particular dot 
+    crawl, so you may find it helpful to send a denoised clip here. also if you want to display TFM 
+    metrics on screen, this would also influence the field matching, so send a clean clip here
     
     default: null
 
     # example usage if you want to show TFM metrics on screen
-    RecoverOrphanFields_Setup(show = true)
+    RecoverOrphanFields_Setup()
     tfm_visible = TFM(show = true)
     tfm_clean = TFM(show = false)
-    tfm_visible.RecoverOrphanFields(show = true, input = tfm_clean)
-    
+    tfm_visible.RecoverOrphanFields(input = tfm_clean)
+  
 output -
     path to a plain text output file. any frames that are replaced by this script will be logged to this 
-    file 
+    file, along with the x and threshold values for each frame
     
     default: ""
 ```
@@ -124,23 +123,27 @@ R 2000 2035 -
 the override instructions supported by this script are
 
 ```
-- (minus sign) : do not overwrite this frame (use this to clean up false positives)
++ (plus sign) : force overwrite this frame if it was found but removed as a false positive
+- (minus sign) : ignore this frame (use this to manually remove false positives)
 b : overwrite this frame by interpolating the bottom field from the original frame
 t : overwrite this frame by interpolating the top field from the original frame
-v : use a new threshold value, the new value must be a number and must come after the v and after a space
-+ (plus sign) : interpolate a new frame from the IVTC output rather than the original fields
+s : use this sens value for this frame (specify the value after a space)
 ```
 
 ```
 # example usage
-# do not overwrite frame 1500
+# ignore frame 1500
 1500 -
+
+# force frame 2600 to be overwritten despite false positive detection
+2600 +
 
 # overwrite frame 1700 with the bottom field and frame 1800 with the top field
 1700 b
 1800 t
 
-# use threshold of 20 for frames 5000 - 8000
-R 5000 8000 v 20
+# use sens of 22 for frames 5000 - 8000
+R 5000 8000 s 22
+
 ```
   
