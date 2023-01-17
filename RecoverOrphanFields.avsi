@@ -17,9 +17,7 @@ Function RecoverOrphanFields_Setup(clip c, bool "show")
 Function RecoverOrphanFields(clip c, int "sens", bool "show", bool "merge", string "ovr", clip "input", string "output")
 {
     global rof_sens = Default(sens, 30)
-    global rof_delta = Default(delta, 40)
     global rof_show = Default(show, false)
-    global rof_debug = Default(debug, false)
     global rof_merge = Default(merge, false)
     ovr = Default(ovr, "")
     global rof_input = input
@@ -35,13 +33,14 @@ Function RecoverOrphanFields(clip c, int "sens", bool "show", bool "merge", stri
         input = IsClip(rof_input) ? rof_input : last
         orig = last
         
-        args = MidStr(override, 2)
+        ovrL = LeftStr(override, 1)
+        args = TrimAll(MidStr(override, 2))
         value = Value(args)
-        sens = (LeftStr(override, 1) == "s") ? value : rof_sens
+        sens = (ovrL == "s") ? value : rof_sens
         merge = rof_merge
         sc_thresh = 70
         sc_sens = 10
-        delta_thresh = rof_delta
+        delta_thresh = 40
         
         simple_check = (sens < 0) ? true : false
         sens = Abs(sens)
@@ -83,9 +82,9 @@ Function RecoverOrphanFields(clip c, int "sens", bool "show", bool "merge", stri
         xt = sc_t ? Min(Abs(ct_diff - pt_diff), Abs(ct_diff - nt_diff)) + sens + sc_sens : Abs(ct_diff - pt_diff) + Abs(ct_diff - nt_diff) + sens
         thresh_b = min_b
         thresh_t = min_t
-        use_b = (xb < thresh_b || (simple_check && min_b > sens) || override == "b") && (override != "t") && (override != "-") ? true : false
-        use_t = (xt < thresh_t || (simple_check && min_t > sens) || override == "t") && (override != "b") && (override != "-") ? true : false
-                
+        use_b = (xb < thresh_b || (simple_check && min_b > sens) || ovrL == "b") && (ovrL != "t") && (ovrL != "-") ? true : false
+        use_t = (xt < thresh_t || (simple_check && min_t > sens) || ovrL == "t") && (ovrL != "b") && (ovrL != "-") ? true : false
+                        
         # check deltas
         dx_b = max_b - mid_b
         dy_b = mid_b - min_b
@@ -98,7 +97,7 @@ Function RecoverOrphanFields(clip c, int "sens", bool "show", bool "merge", stri
         falsepos_dbl = (use_b && use_t && override != "+" && override != "b" && override != "d") ? true : false
 
         # remove likely matches with a high delta (this means two highest metrics are far away from the lowest metric, indicating a likely frame match)
-        falsepos_delta = (((use_b && (delta_b > delta_thresh && thresh_b - xb < sens)) || (use_t && (delta_t > delta_thresh && thresh_t - xt < sens))) && override != "+" && override != "b" && override != "t") ? true : false    
+        falsepos_delta = (((use_b && (delta_b > delta_thresh && thresh_b - xb < sens)) || (use_t && (delta_t > delta_thresh && thresh_t - xt < sens))) && ovrL != "+" && ovrL != "b" && ovrL != "t") ? true : false    
 
         # remove false positives
         falsepos = (falsepos_dbl || falsepos_delta) ? true : false
