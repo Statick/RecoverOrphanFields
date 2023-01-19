@@ -5,13 +5,34 @@
 # call RecoverOrphanFields_Setup() immediately before IVTC
 # call RecoverOrphanFields() immediately after IVTC
 
-Function RecoverOrphanFields_Setup(clip c, bool "show")
+Function RecoverOrphanFields_Setup(clip c, bool "show", string "script")
 {
-    global rof_show = Default(show, false)
-    global rof_hq_b = rof_show ? nnedi3(c, field = 0, qual = 2, nns = 4, nsize = 3).Subtitle("Recovered frame (B)", align = 5, size = 30) : nnedi3(c, field = 0, qual = 2, nns = 4, nsize = 3)
+    rof_show = Default(show, false)
+    script = Default(script, "last")
+    
     global rof_test_b = nnedi3(c, field = 0, nns = 2)
-    global rof_hq_t = rof_show ? nnedi3(c, field = 1, qual = 2, nns = 4, nsize = 3).Subtitle("Recovered frame (T)", align = 5, size = 30) : nnedi3(c, field = 1, qual = 2, nns = 4, nsize = 3)
     global rof_test_t = nnedi3(c, field = 1, nns = 2)
+        
+    global rof_hq_b = (rof_show) ? Eval("""
+            nnedi3(c, field = 0, qual = 2, nns = 4, nsize = 3)
+            Eval(script)
+            Subtitle("Recovered frame (B)", align = 5, size = 30)
+        """) \
+        : Eval("""
+            nnedi3(c, field = 0, qual = 2, nns = 4, nsize = 3)
+            Eval(script)
+        """)
+        
+    global rof_hq_t = (rof_show) ? Eval("""
+            nnedi3(c, field = 1, qual = 2, nns = 4, nsize = 3)
+            Eval(script)
+            Subtitle("Recovered frame (T)", align = 5, size = 30)
+        """) \
+        : Eval("""
+            nnedi3(c, field = 1, qual = 2, nns = 4, nsize = 3)
+            Eval(script)
+        """)  
+        
 }
 
 Function RecoverOrphanFields(clip c, int "sens", bool "show", bool "merge", string "ovr", clip "input", string "output")
@@ -125,22 +146,21 @@ Function RecoverOrphanFields(clip c, int "sens", bool "show", bool "merge", stri
         
         text = text + "top:\n" + \
                 "X: " + String(xt) + "\n" + \
-                "thresh: " + String(thresh_t) + "\n\n"                 
+                "thresh: " + String(thresh_t) + "\n" + \
+                "delta: " + String(delta_t) + "\n\n"                 
                 
         text = text + "bot:\n" + \
                 "X: " + String(xb) + "\n" + \
-                "thresh: " + String(thresh_b) + "\n\n"         
+                "thresh: " + String(thresh_b) + "\n" + \
+                "delta: " + String(delta_b) + "\n\n"
                         
         text = falsepos_dbl ? text + "false pos removed (double match)\n" : text
         text = falsepos_delta ? text + "false pos removed (confidence)\n" : text
         text = (override != "") ? text + "ovr: " + override + "\n" : text
-        
-        text = (sc_b || sc_t) ? text + "sc\n" : text
-                       
+                               
         text = use_t ? text + "Top field interpolated\n" : text
         text = use_b ? text + "Bottom field interpolated\n" : text
        
-                
         rof_show ? Subtitle(text, lsp=10, align=9) : last        
     """, after_frame = true)
     output = (ovr != "") ? ConditionalReader(ovr, "override") : FrameEvaluate(""" override = "" """)
