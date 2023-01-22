@@ -146,13 +146,11 @@ Function RecoverOrphanFields(clip c, int "sens", bool "show", bool "merge", stri
         
         text = text + "top:\n" + \
                 "X: " + String(xt) + "\n" + \
-                "thresh: " + String(thresh_t) + "\n" + \
-                "delta: " + String(delta_t) + "\n\n"                 
+                "thresh: " + String(thresh_t) + "\n\n"              
                 
         text = text + "bot:\n" + \
                 "X: " + String(xb) + "\n" + \
-                "thresh: " + String(thresh_b) + "\n" + \
-                "delta: " + String(delta_b) + "\n\n"
+                "thresh: " + String(thresh_b) + "\n\n"
                         
         text = falsepos_dbl ? text + "false pos removed (double match)\n" : text
         text = falsepos_delta ? text + "false pos removed (confidence)\n" : text
