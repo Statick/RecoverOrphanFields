@@ -47,7 +47,7 @@ Function RecoverOrphanFields(clip c, int "sens", bool "show", bool "merge", stri
     global rof_text = "# Frames replaced by RecoverOrphanFields" + Chr(10) + \
         "# sens: " + String(rof_sens) 
         
-    rof_output != "" ? WriteFileStart(c, rof_output, "rof_text") : c
+    rof_output != "" ? WriteFileStart(c, rof_output, "rof_text", local = true) : c
 
     
     ScriptClip(c, """
@@ -137,7 +137,7 @@ Function RecoverOrphanFields(clip c, int "sens", bool "show", bool "merge", stri
         report = use_t ? " # top field (x:" + String(xt) + " - th:" + String(thresh_t) + ")" : report    
         report = (use_b || use_t) && (override != "") ? report + " ovr: '" + override + "'" : report
         
-        rof_output != "" ? WriteFileIf(last, rof_output, "(use_b == true) || (use_t == true)", "current_frame", "report") : last
+        rof_output != "" ? WriteFileIf(last, rof_output, "(use_b == true) || (use_t == true)", "current_frame", "report", local = true) : last
 
         # on screen metrics
         text = ((!use_b && xb < thresh_b + 5) || (!use_t && xt < thresh_t + 5)) ? "* " : ""
@@ -160,7 +160,7 @@ Function RecoverOrphanFields(clip c, int "sens", bool "show", bool "merge", stri
         text = use_b ? text + "Bottom field interpolated\n" : text
        
         rof_show ? Subtitle(text, lsp=10, align=9) : last        
-    """, after_frame = true)
-    output = (ovr != "") ? ConditionalReader(ovr, "override") : FrameEvaluate(""" override = "" """)
+    """, after_frame = true, local = true)
+    output = (ovr != "") ? ConditionalReader(ovr, "override", local = true) : FrameEvaluate(""" override = "" """, local = true)
     return output
 }
