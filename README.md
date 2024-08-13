@@ -1,6 +1,6 @@
 # RecoverOrphanFields
 
-VapourSynth script to recover animation frames which only exist in a single orphaned field, IVTC processes will drop these as they are unable to match them to another field to produce a full frame, resulting in jerky animation when this happens on panning scenes. This plugin looks for these orphaned fields and interpolates them into full frames in order to recover them and reproduce the original smoother animation
+VapourSynth script to recover animation frames which only exist in a single orphaned field, IVTC processes will drop these as they are unable to match them to another field to produce a full frame, resulting in jerky animation when this happens on panning scenes. This script looks for these orphaned fields and interpolates them into full frames in order to recover them and reproduce the original smoother animation
 
 ### Usage
 Two functions are required for this to work 
