@@ -16,11 +16,14 @@ show=False
     set this to True to highlight on the final output, in large text, when a frame is a recovered orphaned field
 
 HQ=True
-    recovered frames are interpolated with high quality settings then cleaned up with QTGMC placebo. set to False to reduce these to much faster settings. recommended set to True for final output
+    recovered frames are interpolated with high quality settings then cleaned up with QTGMC placebo.
+    set to False to reduce these to much faster settings. recommended set to True for final output
 ```
 
 ##### output = RecoverOrphanFields.RecoverOrphanFields(clip, frames, chroma=False, scene_change=True, ovr="", log="")
-run this after the IVTC process to recover the orphans. must be given the 'frames' output from the earlier function. returns a new clip with the recovered orphans included
+run this after the IVTC process to recover the orphans. 
+must be given the 'frames' output from the earlier function. 
+returns a new clip with the recovered orphans included
 
 ```
 clip
@@ -33,7 +36,9 @@ chroma=False
     enable or disable chroma detection
 
 scene_change=True
-    scene changes can cause false positives. if enabled then frames with the properties '_SceneChangePrev' or '_SceneChangeNext' set to 1 will be counted as scene changes, this greatly improves reliability and is recommended. you will need a way to apply these properties, this script does not detect scene changes by itself
+    scene changes can cause false positives. if enabled then frames with the properties '_SceneChangePrev' or '_SceneChangeNext'
+    set to 1 will be counted as scene changes, this greatly improves reliability and is recommended. you will need a way to
+    apply these properties, this script does not detect scene changes by itself
 
 ovr=""
     path to an overrides file in this format:
@@ -45,7 +50,8 @@ ovr=""
         1234 b        # recover the bottom field
 
 log=""
-    path to an output log file, all recovered frames will be written here. recommended to use this to check the output as recovered orphans will not always be an improvement over the original frame
+    path to an output log file, all recovered frames will be written here. recommended to use this to check the output as
+    recovered orphans will not always be an improvement over the original frame
 ```
 
 ### Notes
