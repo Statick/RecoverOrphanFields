@@ -30,7 +30,7 @@ def BeforeIVTC(clip, show=False, hq=True):
     return bot_quick, top_quick, bot_hq, top_hq
       
     
-def RecoverOrphanFields(clip, rof_frames, chroma=False, scene_change=True, ovr="", log=""):
+def RecoverOrphanFields(clip, rof_frames, chroma=False, scene_change=True, ovr="", log="", details=False):
 
     bot_quick, top_quick, bot_hq, top_hq = rof_frames 
     
@@ -64,7 +64,7 @@ def RecoverOrphanFields(clip, rof_frames, chroma=False, scene_change=True, ovr="
         global rof_globals_framedata
         rof_globals_framedata = []
 
-    clip = core.std.FrameEval(clip, functools.partial(_GetFrame, clips=clips, scn=scene_change, log=log), prop_src=frames, clip_src=clips)
+    clip = core.std.FrameEval(clip, functools.partial(_GetFrame, clips=clips, scn=scene_change, log=log, details=details), prop_src=frames, clip_src=clips)
 
     return clip
     
@@ -72,7 +72,7 @@ def RecoverOrphanFields(clip, rof_frames, chroma=False, scene_change=True, ovr="
 # helper functions below
 #
 
-def _GetFrame(n, f, clips, scn, log):
+def _GetFrame(n, f, clips, scn=True, log="", details=False):
     c, bot_hq, top_hq = clips
         
     override = ""
@@ -210,22 +210,20 @@ def _GetFrame(n, f, clips, scn, log):
         output = c
                
     # debug
-    if False:
+    if details:
         msg = "B:\n"
-        msg += "x: " + str(min_b) + "\n"
-        msg += "th: " + str(thresh_b) + "\n\n"
+        msg += f"x: {min_b:.2f} \n"
+        msg += f"th: {thresh_b:.2f} \n\n"
         msg += "T:\n"
-        msg += "x: " + str(min_t) + "\n"
-        msg += "th: " + str(thresh_t) + "\n\n"
+        msg += f"x: {min_t:.2f} \n"
+        msg += f"th: {thresh_t:.2f} \n\n"
         if scene_change == 1:
             msg += "scene change\n"
         if 'min_both' in locals():
             msg += "Both: " + str(max_both - min_both) + "\n"
             msg += "th: " + str(thresh_both) + "\n"
             
-        output = core.text.Text(output, msg)
-    if False:
-        output = core.text.FrameProps(output)
+        output = core.text.Text(output, msg, alignment=9)
     
     if log != "":
         if 'rof_globals_started' not in globals():
