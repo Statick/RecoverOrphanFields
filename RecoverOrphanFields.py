@@ -30,14 +30,21 @@ def BeforeIVTC(clip, show=False, hq=True):
     return bot_quick, top_quick, bot_hq, top_hq
       
     
-def RecoverOrphanFields(clip, rof_frames, chroma=False, scene_change=True, ovr="", log="", details=False):
+def RecoverOrphanFields(clip, rof_frames, clean_clip=None, sensitivity=3, chroma=False, scene_change=True, ovr="", log="", details=False):
 
     bot_quick, top_quick, bot_hq, top_hq = rof_frames 
     
     if chroma:
-        testclip = clip
+        if clean_clip:
+            testclip = clean_clip
+        else:
+            testclip = clip
     else:
-        testclip = core.std.ShufflePlanes(clip, planes=0, colorfamily=vs.GRAY)
+        if clean_clip:
+            testclip = core.std.ShufflePlanes(clean_clip, planes=0, colorfamily=vs.GRAY)
+        else:
+            testclip = core.std.ShufflePlanes(clip, planes=0, colorfamily=vs.GRAY)
+        
         bot_quick = core.std.ShufflePlanes(bot_quick, planes=0, colorfamily=vs.GRAY)
         top_quick = core.std.ShufflePlanes(top_quick, planes=0, colorfamily=vs.GRAY)
 
@@ -64,7 +71,7 @@ def RecoverOrphanFields(clip, rof_frames, chroma=False, scene_change=True, ovr="
         global rof_globals_framedata
         rof_globals_framedata = []
 
-    clip = core.std.FrameEval(clip, functools.partial(_GetFrame, clips=clips, scn=scene_change, log=log, details=details), prop_src=frames, clip_src=clips)
+    clip = core.std.FrameEval(clip, functools.partial(_GetFrame, clips=clips, sens=sensitivity, scn=scene_change, log=log, details=details), prop_src=frames, clip_src=clips)
 
     return clip
     
@@ -72,7 +79,7 @@ def RecoverOrphanFields(clip, rof_frames, chroma=False, scene_change=True, ovr="
 # helper functions below
 #
 
-def _GetFrame(n, f, clips, scn=True, log="", details=False):
+def _GetFrame(n, f, clips, sens=3, scn=True, log="", details=False):
     c, bot_hq, top_hq = clips
         
     override = ""
@@ -81,10 +88,16 @@ def _GetFrame(n, f, clips, scn=True, log="", details=False):
    
     if 'rof_globals_overrides' in globals():     
         for ovr in rof_globals_overrides:
-            if n >= ovr[0] and n <= ovr[1]:
-                override = ovr[2]
-                val = ovr[3]              
+            if ovr['start_frame'] == -1 and ovr['argument'] == "s":
+                sens = ovr['value']
+                
+            if n >= ovr['start_frame'] and n <= ovr['end_frame']:
+                override = ovr['argument']
+                val = ovr['value']              
 
+    if override == "s":
+        sens = value
+        
     prev = 0
     next = 0
     if scn:
@@ -135,8 +148,8 @@ def _GetFrame(n, f, clips, scn=True, log="", details=False):
     if data_n3 == [0, 0, False]:
         data_n3 = data_n2
 
-    thresh_b = (6 + data_n1[0] + data_n2[0] + data_n3[0]) / 2
-    thresh_t = (6 + data_n1[1] + data_n2[1] + data_n3[1]) / 2
+    thresh_b = (sens * 2 + data_n1[0] + data_n2[0] + data_n3[0]) / 2
+    thresh_t = (sens * 2 + data_n1[1] + data_n2[1] + data_n3[1]) / 2
     
     if min_b > thresh_b:
         use_b = True
@@ -200,7 +213,7 @@ def _GetFrame(n, f, clips, scn=True, log="", details=False):
         
     if use_b:
         output = bot_hq
-        rof_globals_framedata[n][2] = True
+        rof_globals_framedata[n][2] = True        
     elif use_t:
         output = top_hq
         rof_globals_framedata[n][2] = True
@@ -211,7 +224,8 @@ def _GetFrame(n, f, clips, scn=True, log="", details=False):
                
     # debug
     if details:
-        msg = "B:\n"
+        msg = "sens: " + str(sens) + "\n\n"
+        msg += "B:\n"
         msg += f"x: {min_b:.2f} \n"
         msg += f"th: {thresh_b:.2f} \n\n"
         msg += "T:\n"
@@ -226,14 +240,16 @@ def _GetFrame(n, f, clips, scn=True, log="", details=False):
         output = core.text.Text(output, msg, alignment=9)
     
     if log != "":
-        if 'rof_globals_started' not in globals():
+        dir = os.path.dirname(log)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+            
+        if n == 0:
             f = open(log, "w")
             now = datetime.now()
             s = now.strftime("%d/%m/%Y %H:%M:%S ")
             f.write(s + "Frames with recovered fields\n")
             f.close()
-            global rof_globals_started
-            rof_globals_started = True
             
         if use_b or use_t:
             s = ""
@@ -260,9 +276,6 @@ def _ReadOverrides(ovr = ""):
     if not os.path.exists(ovr):
         return False
         
-    #if 'rof_globals_overrides' in globals():
-    #    return True
-        
     global rof_globals_overrides
     rof_globals_overrides = []
         
@@ -282,11 +295,34 @@ def _ReadOverrideLine(line=""):
 
     i_space = line.find(" ")
     i_dash = line.find("-")
+    i_default = line.find("default")
     
     # no space - invalid line
     if i_space == -1:
         return False
         
+    # default setting
+    if i_default > -1 and i_space > -1:
+        i_space2 = line.find(" ", i_space + 1)
+        if i_space2 == -1:
+            arg = line[i_space + 1]
+            value = 0
+        else:
+            arg = line[i_space + 1:i_space2]
+            v_str = line[i_space2 + 1:]
+            try:
+                value = int(v_str)
+            except:
+                return False     
+        
+        ovr = {
+            'start_frame': -1, 
+            'end_frame': -1, 
+            'argument': arg, 
+            'value': value
+        }
+        return ovr     
+
     # single frame override
     if i_dash == -1 or (i_dash > -1 and i_space < i_dash):
         f_str = line[:i_space]
@@ -307,7 +343,12 @@ def _ReadOverrideLine(line=""):
             except:
                 return False
             
-        ovr = [frame, frame, arg, value]
+        ovr = {
+            'start_frame': frame, 
+            'end_frame': frame, 
+            'argument': arg, 
+            'value': value
+        }
         return ovr     
 
     # range override
@@ -336,7 +377,13 @@ def _ReadOverrideLine(line=""):
             except:
                 return False
    
-        ovr = [frame1, frame2, arg, value]
+        #ovr = [frame1, frame2, arg, value]
+        ovr = {
+            'start_frame': frame1, 
+            'end_frame': frame2, 
+            'argument': arg, 
+            'value': value
+        }
         return ovr
     return False
    
