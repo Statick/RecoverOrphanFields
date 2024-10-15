@@ -7,7 +7,7 @@ core = vs.core
 
 MODULE_NAME = 'rof'
 
-def BeforeIVTC(clip, show=False, hq=True):
+def BeforeIVTC(clip, show=False, hq=True, TFF=True):
     
     bot_quick = core.znedi3.nnedi3(clip, field=0, nsize=0, nns=2, qual=1)
     top_quick = core.znedi3.nnedi3(clip, field=1, nsize=0, nns=2, qual=1)
@@ -15,13 +15,13 @@ def BeforeIVTC(clip, show=False, hq=True):
     if hq:
         bot_hq = core.znedi3.nnedi3(clip, field=0, nsize=3, nns=4, qual=2)    
         top_hq = core.znedi3.nnedi3(clip, field=1, nsize=3, nns=4, qual=2)
-        bot_hq = havsfunc.QTGMC(bot_hq, Preset="placebo", FPSDivisor=2, TFF=True)
-        top_hq = havsfunc.QTGMC(top_hq, Preset="placebo", FPSDivisor=2, TFF=True)
+        bot_hq = havsfunc.QTGMC(bot_hq, Preset="placebo", FPSDivisor=2, TFF=TFF)
+        top_hq = havsfunc.QTGMC(top_hq, Preset="placebo", FPSDivisor=2, TFF=TFF)
     else:
         bot_hq = bot_quick   
         top_hq = top_quick
-        bot_hq = havsfunc.QTGMC(bot_hq, Preset="fast", FPSDivisor=2, TFF=True)
-        top_hq = havsfunc.QTGMC(top_hq, Preset="fast", FPSDivisor=2, TFF=True)
+        bot_hq = havsfunc.QTGMC(bot_hq, Preset="fast", FPSDivisor=2, TFF=TFF)
+        top_hq = havsfunc.QTGMC(top_hq, Preset="fast", FPSDivisor=2, TFF=TFF)
     
     if show == True:
         bot_hq = core.text.Text(bot_hq, "Recovered frame (B)", alignment=5, scale=3)
