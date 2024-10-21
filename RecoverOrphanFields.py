@@ -70,7 +70,12 @@ def RecoverOrphanFields(clip, rof_frames, clean_clip=None, sensitivity=3, chroma
     if not 'rof_globals_framedata' in globals():
         global rof_globals_framedata
         rof_globals_framedata = []
-
+    
+    if not 'rof_globals_log' in globals():
+        global rof_globals_log
+        rof_globals_log = []
+        
+        
     clip = core.std.FrameEval(clip, functools.partial(_GetFrame, clips=clips, sens=sensitivity, scn=scene_change, log=log, details=details), prop_src=frames, clip_src=clips)
 
     return clip
@@ -80,11 +85,21 @@ def RecoverOrphanFields(clip, rof_frames, clean_clip=None, sensitivity=3, chroma
 #
 
 def _GetFrame(n, f, clips, sens=3, scn=True, log="", details=False):
+    global rof_globals_framedata
+    global rof_globals_log
+    global ccf_globals_freezeframes
+
     c, bot_hq, top_hq = clips
         
     override = ""
     use_b = False
     use_t = False
+    
+    if 'ccf_globals_freezeframes' in globals():
+        for ff in ccf_globals_freezeframes:
+            if n >= ff['start_frame'] and n <= ff['end_frame']:
+                override = "-"
+                break
    
     if 'rof_globals_overrides' in globals():     
         for ovr in rof_globals_overrides:
@@ -213,10 +228,12 @@ def _GetFrame(n, f, clips, sens=3, scn=True, log="", details=False):
         
     if use_b:
         output = bot_hq
-        rof_globals_framedata[n][2] = True        
+        rof_globals_framedata[n][2] = True
+        rof_globals_log.append({'frame': n, 'value': "b"})
     elif use_t:
         output = top_hq
         rof_globals_framedata[n][2] = True
+        rof_globals_log.append({'frame': n, 'value': "t"})
     elif override == "-":
         output = c
     else:
@@ -238,32 +255,52 @@ def _GetFrame(n, f, clips, sens=3, scn=True, log="", details=False):
             msg += "th: " + str(thresh_both) + "\n"
             
         output = core.text.Text(output, msg, alignment=9)
-    
-    if log != "":
+
+    # output log file when end of clip is reached
+    if log != "" and n == c.num_frames - 1:
         dir = os.path.dirname(log)
         if not os.path.exists(dir):
             os.makedirs(dir)
             
-        if n == 0:
-            f = open(log, "w")
-            now = datetime.now()
-            s = now.strftime("%d/%m/%Y %H:%M:%S ")
-            f.write(s + "Frames with recovered fields\n")
-            f.close()
+        f = open(log, "w")
+        now = datetime.now()
+        s = now.strftime("%d/%m/%Y %H:%M:%S ")
+        f.write(s + "Frames with recovered fields\n")
+        f.close()
+        
+        f = open(log, "a")
+
+        for l in rof_globals_log:
+            f.write(str(l['frame']) + " " + l['value'] + "\n")
+
+        f.close()
+        
+    
+    # if log != "":
+        # dir = os.path.dirname(log)
+        # if not os.path.exists(dir):
+            # os.makedirs(dir)
             
-        if use_b or use_t:
-            s = ""
-            if use_b:
-                s = "b"
-            elif use_t:
-                s = "t"
+        # if n == 0:
+            # f = open(log, "w")
+            # now = datetime.now()
+            # s = now.strftime("%d/%m/%Y %H:%M:%S ")
+            # f.write(s + "Frames with recovered fields\n")
+            # f.close()
+            
+        # if use_b or use_t:
+            # s = ""
+            # if use_b:
+                # s = "b"
+            # elif use_t:
+                # s = "t"
                 
-            if override == "b" or override == "t":
-                s += " (ovr)"
+            # if override == "b" or override == "t":
+                # s += " (ovr)"
                 
-            f = open(log, "a")
-            f.write(str(n) + " " + s + "\n")
-            f.close()
+            # f = open(log, "a")
+            # f.write(str(n) + " " + s + "\n")
+            # f.close()
             
     output = core.std.CopyFrameProps(output, clips[0])
     return output
